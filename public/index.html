@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TestWeaver - AI Test Automation System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4rem 0;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn-primary {
+            background: #667eea;
+            border: none;
+        }
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        .test-form {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .result-section {
+            display: none;
+        }
+        .spinner-border {
+            width: 1rem;
+            height: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="hero-section">
+        <div class="container">
+            <div class="row justify-content-center text-center">
+                <div class="col-md-8">
+                    <h1 class="display-4 mb-4">
+                        <i class="fas fa-robot"></i> TestWeaver
+                    </h1>
+                    <p class="lead mb-4">AI-Powered Test Automation System</p>
+                    <p class="mb-0">Generate and execute automated tests from user stories using AI</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title text-center mb-4">
+                            <i class="fas fa-play-circle"></i> Execute Test
+                        </h5>
+                        
+                        <form id="testForm" class="test-form">
+                            <div class="mb-3">
+                                <label for="userStory" class="form-label">User Story</label>
+                                <textarea 
+                                    class="form-control" 
+                                    id="userStory" 
+                                    rows="3" 
+                                    placeholder="As a user I want to..."
+                                    required>As a user I want to click the login button and fill out the login form</textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="url" class="form-label">Target URL</label>
+                                <input 
+                                    type="url" 
+                                    class="form-control" 
+                                    id="url" 
+                                    placeholder="https://example.com"
+                                    value="https://example.com"
+                                    required>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-rocket"></i> Execute Test
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div id="loadingSection" class="text-center mt-4" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Executing test...</p>
+                        </div>
+                        
+                        <div id="resultSection" class="result-section mt-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="fas fa-clipboard-list"></i> Test Results</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="testResults"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-history"></i> Recent Tests</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="testHistory">
+                            <p class="text-muted">No tests executed yet</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = '/api/tests';
+        
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const userStory = document.getElementById('userStory').value;
+            const url = document.getElementById('url').value;
+            
+            // Show loading
+            document.getElementById('loadingSection').style.display = 'block';
+            document.getElementById('resultSection').style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/execute`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ userStory, url })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayTestResult(result);
+                    loadTestHistory();
+                } else {
+                    displayError(result.error || 'Test execution failed');
+                }
+            } catch (error) {
+                displayError('Network error: ' + error.message);
+            } finally {
+                document.getElementById('loadingSection').style.display = 'none';
+            }
+        });
+        
+        function displayTestResult(result) {
+            const statusClass = result.status === 'passed' ? 'success' : 'danger';
+            const statusIcon = result.status === 'passed' ? 'fas fa-check' : 'fas fa-times';
+            
+            const resultHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Test ID:</strong> <code>${result.testId}</code></p>
+                        <p><strong>Status:</strong> <span class="badge bg-${statusClass}"><i class="${statusIcon}"></i> ${result.status}</span></p>
+                        <p><strong>Duration:</strong> ${result.duration}ms</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Steps:</strong> ${result.steps}</p>
+                        <p><strong>Screenshots:</strong> ${result.screenshots}</p>
+                        <p><strong>Errors:</strong> ${result.errors}</p>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <a href="${API_BASE}/${result.testId}/report/html" target="_blank" class="btn btn-outline-primary">
+                        <i class="fas fa-file-alt"></i> View HTML Report
+                    </a>
+                    <a href="${API_BASE}/${result.testId}/report" target="_blank" class="btn btn-outline-secondary">
+                        <i class="fas fa-download"></i> Download JSON Report
+                    </a>
+                </div>
+            `;
+            
+            document.getElementById('testResults').innerHTML = resultHTML;
+            document.getElementById('resultSection').style.display = 'block';
+        }
+        
+        function displayError(error) {
+            const resultHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong> ${error}
+                </div>
+            `;
+            
+            document.getElementById('testResults').innerHTML = resultHTML;
+            document.getElementById('resultSection').style.display = 'block';
+        }
+        
+        async function loadTestHistory() {
+            try {
+                const response = await fetch(API_BASE);
+                const result = await response.json();
+                
+                if (result.success && result.tests.length > 0) {
+                    const historyHTML = result.tests.map(test => {
+                        const statusClass = test.status === 'passed' ? 'success' : 'danger';
+                        const statusIcon = test.status === 'passed' ? 'fas fa-check' : 'fas fa-times';
+                        
+                        return `
+                            <div class="card mb-2">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-8">
+                                            <h6>${test.userStory}</h6>
+                                            <small class="text-muted">${test.url}</small>
+                                        </div>
+                                        <div class="col-md-2 text-center">
+                                            <span class="badge bg-${statusClass}">
+                                                <i class="${statusIcon}"></i> ${test.status}
+                                            </span>
+                                        </div>
+                                        <div class="col-md-2 text-center">
+                                            <a href="${API_BASE}/${test.testId}/report/html" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    document.getElementById('testHistory').innerHTML = historyHTML;
+                } else {
+                    document.getElementById('testHistory').innerHTML = '<p class="text-muted">No tests executed yet</p>';
+                }
+            } catch (error) {
+                console.error('Error loading test history:', error);
+            }
+        }
+        
+        // Load test history on page load
+        loadTestHistory();
+    </script>
+</body>
+</html>
